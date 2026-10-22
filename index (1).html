@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sentinel Alertes</title>
+<meta name="theme-color" content="#040710">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: tactical HUD — status band, today's shift starts grouped by time, settings at the end */
+:root{
+  --bg:#070b14; --surface:#0e1424; --ink:#dfe6f5; --muted:#7884a3; --line:#1f2a44;
+  --accent:#3d8bff; --accent-ink:#ffffff; --signal:#ff2d3d; --warn:#ff8a3d;
+  --header:#040710; --header-ink:#eaf0fc; --header-muted:#6f7b9a;
+  --f-display:"Saira Stencil One","Impact",system-ui,sans-serif;
+  --f-body:"Rajdhani","Arial Narrow",system-ui,sans-serif;
+  --f-mono:"Share Tech Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--header)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;font-weight:500;line-height:1.35;-webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(rgba(61,139,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(61,139,255,.035) 1px,transparent 1px);background-size:32px 32px}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header{background:var(--header);border-bottom:1px solid var(--line)}
+header .wrap{padding-block:16px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.logo{font-family:var(--f-display);font-size:1.45rem;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:10px;color:var(--header-ink)}
+.logo small{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.2em;color:var(--accent)}
+.dot{width:9px;height:9px;background:var(--signal);animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.15}}
+.clock{font-family:var(--f-mono);font-size:1.4rem;color:var(--accent);font-variant-numeric:tabular-nums}
+
+main .wrap{padding-block:16px 48px;display:grid;gap:18px}
+.panel{position:relative;border:1px solid var(--line);background:var(--surface);padding:14px}
+.panel::before{content:"";position:absolute;top:-2px;left:-2px;width:12px;height:12px;border:2px solid var(--accent);border-right:0;border-bottom:0}
+.panel.alert{border-color:var(--signal)}
+.panel.alert::before{border-color:var(--signal)}
+.label{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.16em;color:var(--accent)}
+.panel.alert .label{color:var(--signal)}
+h1{font-family:var(--f-display);font-weight:400;font-size:1.35rem;margin:4px 0 6px;text-transform:uppercase;letter-spacing:.03em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:0;padding:12px 16px;font-weight:700;background:var(--accent);color:var(--accent-ink);text-transform:uppercase;letter-spacing:.08em;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);clip-path:none}
+.btn.red{background:var(--signal)}
+.btn[disabled]{opacity:.5}
+input[type=text],input[type=url],select{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);padding:12px;font-family:var(--f-mono);font-size:16px;border-radius:0}
+
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.date{font-family:var(--f-display);font-size:1.2rem;text-transform:uppercase;letter-spacing:.04em}
+.count{font-family:var(--f-mono);font-size:2rem;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+.count.late{color:var(--signal);text-shadow:0 0 12px rgba(255,45,61,.5)}
+.bar{height:6px;background:var(--line);margin-top:10px}
+.bar span{display:block;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent);transition:width .3s}
+
+.slot h2{font-family:var(--f-mono);font-weight:400;font-size:.76rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
+.slot h2 b{color:var(--accent);font-weight:400;font-size:.9rem}
+.slot.late h2,.slot.late h2 b{color:var(--signal)}
+.list{display:grid;gap:6px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);padding:12px 10px 12px 14px;position:relative;min-height:64px}
+.item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line)}
+.slot.late .item:not(.done)::before{background:var(--signal);box-shadow:0 0 10px var(--signal)}
+.check{width:28px;height:28px;border:2px solid var(--muted);background:transparent;transform:rotate(45deg);display:grid;place-items:center;padding:0}
+.check svg{transform:rotate(-45deg);opacity:0}
+.item.done{opacity:.55}
+.item.done .check{background:var(--accent);border-color:var(--accent)}
+.item.done .check svg{opacity:1}
+.item.done .who{text-decoration:line-through}
+.body{min-width:0}
+.who{font-weight:700;font-size:1.05rem;text-transform:uppercase;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px;font-family:var(--f-mono);font-size:.76rem;color:var(--muted);text-transform:uppercase}
+.meta .t{color:var(--accent)}
+.tag{border:1px solid var(--warn);color:var(--warn);padding:0 5px}
+.call{width:46px;height:46px;display:grid;place-items:center;border:1px solid var(--accent);color:var(--accent);text-decoration:none}
+details{border:1px dashed var(--line);padding:10px 12px}
+summary{cursor:pointer;font-family:var(--f-mono);font-size:.76rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+details .list{margin-top:10px;opacity:.75}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.field{display:grid;gap:6px}
+.field label{font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.code{font-family:var(--f-mono);word-break:break-all;user-select:all;-webkit-user-select:all;background:var(--bg);border:1px solid var(--line);padding:10px;margin-top:8px;font-size:.85rem}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:200px;cursor:pointer}
+.empty{color:var(--muted);font-family:var(--f-mono);font-size:.82rem;text-transform:uppercase;letter-spacing:.06em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#060a14;border:1px solid var(--accent);color:var(--accent);padding:10px 16px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.06em;z-index:40;font-size:.82rem;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="logo"><span class="dot" aria-hidden="true"></span><span>Sentinel<br><small>Alertes</small></span></div>
+  <div class="clock" id="clock">--:--</div>
+</div></header>
+
+<main><div class="wrap">
+
+  <!-- Liaison au serveur -->
+  <section class="panel" id="setup" hidden>
+    <div class="label">Première liaison</div>
+    <h1>Relier Sentinel à ton serveur d'alertes</h1>
+    <p class="muted">Colle l'adresse de ton serveur Cloudflare (elle finit par workers.dev).</p>
+    <div class="field" style="margin-top:12px"><label for="srv">Adresse du serveur</label><input type="url" id="srv" placeholder="https://sentinel-alertes.xxx.workers.dev" autocomplete="off"></div>
+    <div class="field" id="codeField" hidden style="margin-top:10px"><label for="code">Code d'accès</label><input type="text" id="code" autocomplete="off" placeholder="Code affiché sur ton premier appareil"></div>
+    <div class="row"><button class="btn" id="link">Relier</button></div>
+  </section>
+
+  <!-- Notifications -->
+  <section class="panel alert" id="notif" hidden>
+    <div class="label">Notifications</div>
+    <h1 id="notifTitle">Alertes désactivées</h1>
+    <p class="muted" id="notifText">Active-les pour que Sentinel sonne même quand l'appli est fermée.</p>
+    <div class="row"><button class="btn red" id="enable">Activer les alertes</button><button class="btn ghost" id="test" hidden>Tester</button></div>
+  </section>
+
+  <!-- Aujourd'hui -->
+  <section id="today" hidden>
+    <div class="panel">
+      <div class="head"><div><div class="label">Débuts de service</div><div class="date" id="date"></div></div><div class="count" id="count">0/0</div></div>
+      <div class="bar"><span id="bar" style="width:0"></span></div>
+    </div>
+    <div id="slots" style="display:grid;gap:18px;margin-top:18px"></div>
+  </section>
+
+  <!-- Réglages -->
+  <section class="panel" id="settings" hidden>
+    <div class="label">Réglages</div>
+    <div class="grid2">
+      <div class="field"><label for="offset">Première alerte</label>
+        <select id="offset"><option value="-10">10 min avant</option><option value="-5">5 min avant</option><option value="0">À l'heure</option><option value="5">5 min après</option><option value="10">10 min après</option></select></div>
+      <div class="field"><label for="repeat">Relancer toutes les</label>
+        <select id="repeat"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></div>
+    </div>
+    <div class="row"><div class="btn ghost file">Importer un planning (PDF)<input type="file" id="pdf" accept="application/pdf,.pdf" aria-label="Importer un planning PDF"></div></div>
+    <p class="muted" id="range" style="margin-top:10px"></p>
+    <details style="margin-top:12px"><summary>Code d'accès (pour un autre appareil)</summary><div class="code" id="showCode"></div></details>
+  </section>
+
+</div></main>
+<div class="toast" id="toast" hidden></div>
+<script src="parser.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
