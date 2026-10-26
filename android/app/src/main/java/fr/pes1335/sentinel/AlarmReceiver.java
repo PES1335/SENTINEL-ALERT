@@ -42,7 +42,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         long now = System.currentTimeMillis();
         if (p.getBoolean("test", false) && p.getLong("testAt", 0) <= now + 60000L) {
             p.edit().putBoolean("test", false).apply();
-            show(c, "Test", "Alarme Sentinel", "L'alarme plein écran fonctionne.\nAppuie sur « C'est fait » pour l'arrêter.", "[]", "[]", "");
+            show(c, "Test", "Alarme Sentinel", "L'alarme plein écran fonctionne.", "[]", "[]", "", "Tout fonctionne", "C'est fait", "[]");
             return;
         }
         Scheduler.Ring r = Scheduler.due(c);
@@ -52,8 +52,11 @@ public class AlarmReceiver extends BroadcastReceiver {
         StringBuilder body = new StringBuilder();
         JSONArray slots = new JSONArray();
         JSONArray tasks = new JSONArray();
+        JSONArray items = new JSONArray();
         String title;
         String kind;
+        String when = "";
+        String doneLabel;
         if (!r.slots.isEmpty()) {
             e.putLong("snooze", now + r.repeat * 60000L); // relance automatique si on ignore
             for (JSONObject row : r.slots) {
@@ -64,20 +67,35 @@ public class AlarmReceiver extends BroadcastReceiver {
                 body.append(row.optString("start")).append("  ")
                         .append(row.optString("site").replace("New Yorker ", "NY ")).append("\n   ")
                         .append(who).append(tel.length() > 0 ? "  ·  " + fmtTel(tel) : "").append("\n");
-                try { slots.put(new JSONObject().put("date", r.date).put("key", row.optString("key"))); } catch (Exception ignored) {}
+                try {
+                    slots.put(new JSONObject().put("date", r.date).put("key", row.optString("key")));
+                    items.put(new JSONObject().put("a", row.optString("site").replace("New Yorker ", "NY "))
+                            .put("b", row.optString("start") + " · " + who + (tel.length() > 0 ? " · " + fmtTel(tel) : "")));
+                } catch (Exception ignored) {}
             }
             int n = r.slots.size();
             kind = "Débuts de service";
             title = n + " agent" + (n > 1 ? "s" : "") + " à appeler";
+            when = "Créneau de " + r.slots.get(0).optString("start");
+            doneLabel = "Agents appelés";
         } else {
-            kind = "Objectif";
+            kind = "Alerte objectif";
             title = r.tasks.get(0).optString("title");
+            long due0 = r.tasks.get(0).optLong("due", 0);
+            if (due0 > 0) when = "Échéance " + Scheduler.hhmm(due0);
+            int prio0 = r.tasks.get(0).optInt("prio", 0);
+            if (prio0 == 2) kind = "⚠ Priorité absolue";
+            else if (prio0 == 1) kind = "Priorité haute";
+            doneLabel = "Objectif accompli";
         }
         for (int i = 0; i < r.tasks.size(); i++) {
             JSONObject t = r.tasks.get(i);
             e.putBoolean("rung:" + t.optString("id") + ":" + r.taskAt.get(i), true);
             e.remove("tsnooze:" + t.optString("id"));
             tasks.put(t);
+            if (!r.slots.isEmpty() || i > 0) {
+                try { items.put(new JSONObject().put("a", "Objectif : " + t.optString("title")).put("b", t.optLong("due", 0) > 0 ? "Échéance " + Scheduler.hhmm(t.optLong("due", 0)) : "")); } catch (Exception ignored) {}
+            }
             if (!r.slots.isEmpty() || i > 0) body.append("Objectif : ").append(t.optString("title")).append("\n");
             else {
                 long due = t.optLong("due", 0);
@@ -88,7 +106,7 @@ public class AlarmReceiver extends BroadcastReceiver {
             }
         }
         e.apply();
-        show(c, kind, title, body.toString().trim(), slots.toString(), tasks.toString(), r.date);
+        show(c, kind, title, body.toString().trim(), slots.toString(), tasks.toString(), r.date, when, doneLabel, items.toString());
     }
 
     static String fmtTel(String t) {
@@ -115,12 +133,14 @@ public class AlarmReceiver extends BroadcastReceiver {
         nm.createNotificationChannel(ch);
     }
 
-    static void show(Context c, String kind, String title, String body, String slots, String tasks, String date) {
+    static void show(Context c, String kind, String title, String body, String slots, String tasks, String date,
+                     String when, String doneLabel, String items) {
         channel(c);
         Intent i = new Intent(c, AlarmActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION)
                 .putExtra("kind", kind).putExtra("title", title).putExtra("body", body)
-                .putExtra("slots", slots).putExtra("tasks", tasks).putExtra("date", date);
+                .putExtra("slots", slots).putExtra("tasks", tasks).putExtra("date", date)
+                .putExtra("when", when).putExtra("doneLabel", doneLabel).putExtra("items", items);
         PendingIntent pi = PendingIntent.getActivity(c, (int) (System.currentTimeMillis() % 100000), i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification n = new Notification.Builder(c, CHANNEL)

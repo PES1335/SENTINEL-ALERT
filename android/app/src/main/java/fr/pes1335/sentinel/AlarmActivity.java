@@ -1,12 +1,11 @@
 package fr.pes1335.sentinel;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
@@ -16,14 +15,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,17 +33,9 @@ public class AlarmActivity extends Activity {
     private MediaPlayer player;
     private Vibrator vibrator;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private LinearLayout root;
-    private boolean blink;
+    private WebView web;
     private String slots = "[]", tasks = "[]";
 
-    private final Runnable blinker = new Runnable() {
-        @Override public void run() {
-            blink = !blink;
-            root.setBackgroundColor(blink ? Color.rgb(120, 10, 22) : DARK_RED);
-            handler.postDelayed(this, 700);
-        }
-    };
     private final Runnable silence = this::stopSound;
 
     @Override
@@ -57,11 +44,10 @@ public class AlarmActivity extends Activity {
         setShowWhenLocked(true);
         setTurnScreenOn(true);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().setStatusBarColor(DARK_RED);
-        getWindow().setNavigationBarColor(DARK_RED);
+        getWindow().setStatusBarColor(Color.rgb(18, 4, 16));
+        getWindow().setNavigationBarColor(Color.rgb(18, 4, 16));
         build(getIntent());
         startSound();
-        handler.post(blinker);
         handler.postDelayed(silence, 3 * 60 * 1000L); // coupe la sonnerie au bout de 3 min
     }
 
@@ -73,93 +59,46 @@ public class AlarmActivity extends Activity {
         startSound();
     }
 
-    private int dp(int v) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics());
-    }
-
-    private TextView text(String s, int sp, int color, boolean bold, boolean mono) {
-        TextView t = new TextView(this);
-        t.setText(s);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
-        t.setTextColor(color);
-        t.setTypeface(mono ? Typeface.MONOSPACE : Typeface.create("sans-serif-condensed", bold ? Typeface.BOLD : Typeface.NORMAL));
-        return t;
-    }
-
-    private Button button(String s, int bg, int fg, boolean outline) {
-        Button btn = new Button(this);
-        btn.setText(s);
-        btn.setAllCaps(true);
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        btn.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
-        btn.setTextColor(fg);
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(outline ? Color.TRANSPARENT : bg);
-        g.setStroke(dp(2), outline ? Color.argb(160, 255, 255, 255) : bg);
-        btn.setBackground(g);
-        btn.setPadding(dp(12), dp(14), dp(12), dp(14));
-        return btn;
-    }
-
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void build(Intent in) {
-        String kind = in.getStringExtra("kind");
-        String title = in.getStringExtra("title");
-        String body = in.getStringExtra("body");
         slots = in.getStringExtra("slots") == null ? "[]" : in.getStringExtra("slots");
         tasks = in.getStringExtra("tasks") == null ? "[]" : in.getStringExtra("tasks");
-
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(DARK_RED);
-        root.setPadding(dp(22), dp(36), dp(22), dp(28));
-
-        TextView k = text("⚠  " + (kind == null ? "ALERTE" : kind.toUpperCase()), 15, RED, true, true);
-        k.setLetterSpacing(0.15f);
-        root.addView(k);
-
-        TextView clock = text(Scheduler.hhmm(System.currentTimeMillis()), 64, Color.WHITE, true, true);
-        root.addView(clock);
-
-        TextView t = text(title == null ? "Sentinel" : title, 30, Color.WHITE, true, false);
-        t.setAllCaps(true);
-        t.setPadding(0, dp(4), 0, dp(14));
-        root.addView(t);
-
-        ScrollView sv = new ScrollView(this);
-        TextView bodyView = text(body == null ? "" : body, 18, Color.rgb(240, 220, 222), false, true);
-        bodyView.setLineSpacing(dp(3), 1f);
-        sv.addView(bodyView);
-        root.addView(sv, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        Button done = button("C'est fait", BLUE, Color.WHITE, false);
-        done.setOnClickListener(v -> finishWith("done", 0));
-        LinearLayout.LayoutParams full = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        full.topMargin = dp(16);
-        root.addView(done, full);
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        Button s5 = button("Rappel 5 min", 0, Color.WHITE, true);
-        Button s10 = button("Rappel 10 min", 0, Color.WHITE, true);
-        s5.setOnClickListener(v -> finishWith("snooze", 5));
-        s10.setOnClickListener(v -> finishWith("snooze", 10));
-        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        half2.leftMargin = dp(10);
-        row.addView(s5, half);
-        row.addView(s10, half2);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowLp.topMargin = dp(10);
-        root.addView(row, rowLp);
-
-        TextView close = text("Couper le son (rappel automatique plus tard)", 14, Color.argb(190, 255, 255, 255), false, false);
-        close.setGravity(Gravity.CENTER);
-        close.setPadding(0, dp(16), 0, dp(4));
-        close.setOnClickListener(v -> finishWith("close", 0));
-        root.addView(close);
-
-        setContentView(root);
+        final String data;
+        String d;
+        try {
+            JSONObject o = new JSONObject();
+            o.put("kind", in.getStringExtra("kind"));
+            o.put("title", in.getStringExtra("title"));
+            o.put("when", in.getStringExtra("when"));
+            o.put("doneLabel", in.getStringExtra("doneLabel"));
+            String items = in.getStringExtra("items");
+            o.put("items", new JSONArray(items == null ? "[]" : items));
+            d = o.toString();
+        } catch (Exception e) {
+            d = "{}";
+        }
+        data = d;
+        if (web == null) {
+            web = new WebView(this);
+            web.setBackgroundColor(Color.rgb(18, 4, 16));
+            web.getSettings().setJavaScriptEnabled(true);
+            web.addJavascriptInterface(new AlarmBridge(), "AlarmBridge");
+            setContentView(web);
+        }
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView v, String url) {
+                v.evaluateJavascript("show(" + data + ")", null);
+            }
+        });
+        web.loadUrl("file:///android_asset/alarm.html");
         ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(AlarmReceiver.NOTIF_ID);
+    }
+
+    /** Boutons de l'écran d'alarme. */
+    public final class AlarmBridge {
+        @JavascriptInterface public void done() { runOnUiThread(() -> finishWith("done", 0)); }
+        @JavascriptInterface public void snooze(final int m) { runOnUiThread(() -> finishWith("snooze", m)); }
+        @JavascriptInterface public void close() { runOnUiThread(() -> finishWith("close", 0)); }
     }
 
     private void startSound() {
@@ -243,6 +182,4 @@ public class AlarmActivity extends Activity {
         super.onDestroy();
     }
 
-    @SuppressWarnings("unused")
-    private void unused(View v) {}
 }

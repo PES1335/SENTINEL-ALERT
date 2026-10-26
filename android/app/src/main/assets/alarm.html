@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap">
+<style>
+:root{--signal:#ff2d3d;--accent:#3d8bff;--f-display:"Saira Stencil One","Impact",sans-serif;--f-body:"Rajdhani","Arial Narrow",sans-serif;--f-mono:"Share Tech Mono",monospace;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#120410;font-family:var(--f-body);font-weight:500;-webkit-tap-highlight-color:transparent}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+.alarm{position:fixed;inset:0;color:#fff;display:grid;place-items:center;padding:28px 20px;
+  background:radial-gradient(circle at center,#5c0a14 0%,#120410 75%);animation:alert 1s infinite}
+@keyframes alert{50%{background-color:#000;box-shadow:inset 0 0 120px rgba(255,45,61,.6)}}
+.alarm-in{max-width:460px;width:100%;display:grid;gap:16px;text-align:center;border:1px solid rgba(255,45,61,.6);padding:26px 20px;background:rgba(0,0,0,.35);max-height:100%;overflow:auto}
+.ring{width:76px;height:76px;margin:6px auto;border:2px solid var(--signal);transform:rotate(45deg);display:grid;place-items:center;animation:pulse 1s infinite}
+.ring svg{transform:rotate(-45deg);animation:shake 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 24px var(--signal)}}
+@keyframes shake{0%,100%{transform:rotate(-45deg)}10%,30%{transform:rotate(-57deg)}20%,40%{transform:rotate(-33deg)}50%{transform:rotate(-45deg)}}
+.k{font-family:var(--f-mono);font-size:.82rem;letter-spacing:.24em;text-transform:uppercase;color:var(--signal)}
+h2{font-family:var(--f-display);font-weight:400;font-size:clamp(1.6rem,7vw,2.4rem);margin:0;text-transform:uppercase;letter-spacing:.03em;overflow-wrap:anywhere}
+.when{font-family:var(--f-mono);font-size:.95rem;opacity:.85}
+.list{display:grid;gap:6px;text-align:left}
+.ag{border-left:2px solid var(--signal);padding:4px 0 4px 10px}
+.ag b{display:block;text-transform:uppercase;font-size:1.05rem;letter-spacing:.02em}
+.ag span{font-family:var(--f-mono);font-size:.82rem;opacity:.85}
+.btns{display:grid;gap:8px}
+.snz{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+button{font:inherit;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;border-radius:0;padding:13px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:1rem}
+button.main{background:var(--accent);border-color:var(--accent);color:#fff;padding:15px}
+button:active{opacity:.7}
+</style></head>
+<body>
+<div class="alarm" role="alertdialog" aria-labelledby="t">
+  <div class="alarm-in">
+    <div class="ring"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg></div>
+    <div class="k" id="k">Alerte</div>
+    <h2 id="t">Sentinel</h2>
+    <div class="when" id="w"></div>
+    <div class="list" id="l"></div>
+    <div class="btns">
+      <button class="main" id="done">C'est fait</button>
+      <div class="snz">
+        <button data-m="5">+5 min</button>
+        <button data-m="15">+15 min</button>
+        <button data-m="60">+1 h</button>
+      </div>
+      <button id="close">Ignorer</button>
+    </div>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tel=t=>(t||"").replace(/(\d{2})(?=\d)/g,"$1 ");
+function show(d){
+  $("#k").textContent=d.kind||"Alerte";
+  $("#t").textContent=d.title||"Sentinel";
+  $("#w").textContent=d.when||"";
+  $("#done").textContent=d.doneLabel||"C'est fait";
+  $("#l").innerHTML=(d.items||[]).map(i=>`<div class="ag"><b>${esc(i.a)}</b><span>${esc(i.b||"")}</span></div>`).join("");
+}
+$("#done").onclick=()=>AlarmBridge.done();
+$("#close").onclick=()=>AlarmBridge.close();
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>AlarmBridge.snooze(+b.dataset.m));
+</script>
+</body></html>
