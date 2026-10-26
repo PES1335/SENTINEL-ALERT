@@ -1,5 +1,5 @@
 // Sentinel Alertes — service worker : notifications appli fermée + fonctionnement hors ligne
-const SHELL = "sentinel-shell-v2";
+const SHELL = "sentinel-shell-v3";
 const FILES = ["./", "index.html", "app.js", "tasks.js", "parser.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "badge-96.png"];
 
 self.addEventListener("install", e => {
