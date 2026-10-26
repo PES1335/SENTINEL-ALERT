@@ -48,7 +48,7 @@ function b64ToBytes(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%
 async function swReg(){ return "serviceWorker" in navigator ? navigator.serviceWorker.ready : null }
 const PERMS = { notif:"Notifications", fsi:"Alarme plein écran", exact:"Alarmes à l'heure exacte", battery:"Batterie sans restriction" };
 function refreshNative(){
-  const p = $("#notif"); p.hidden = false;
+  const p = $("#notif"); p.hidden = view === "qg";
   let st = {}; try{ st = JSON.parse(nativeCall("status") || "{}") }catch(e){}
   const missing = Object.keys(PERMS).filter(k => st[k] === false);
   const ok = !missing.length;
@@ -66,7 +66,7 @@ $("#notifText").addEventListener("click", e => { const b = e.target.closest("[da
 async function refreshNotif(){
   if(NATIVE) return refreshNative();
   const p = $("#notif");
-  p.hidden = false;
+  p.hidden = view === "qg";
   if(!("Notification" in window) || !("PushManager" in window)){
     $("#notifTitle").textContent = "Notifications indisponibles";
     $("#notifText").textContent = "Ouvre Sentinel depuis Chrome puis installe-la sur l'écran d'accueil (menu ⋮ > Installer l'application).";
@@ -169,9 +169,10 @@ try{ view = localStorage.getItem("sentinel.view") || "service" }catch(e){}
 function showView(v){
   view = v; try{ localStorage.setItem("sentinel.view", v) }catch(e){}
   const svc = v === "service";
-  $("#today").hidden = !svc; $("#settings").hidden = !svc; $("#tasksView").hidden = svc;
+  $("#today").hidden = !svc; $("#settings").hidden = !svc; $("#tasksView").hidden = v !== "tasks"; $("#qgView").hidden = v !== "qg";
+  $("#notif").hidden = v === "qg";
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
-  if(!svc && window.SATasks) window.SATasks.refresh();
+  if(v === "tasks" && window.SATasks) window.SATasks.refresh();
   window.scrollTo(0,0);
 }
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => showView(b.dataset.v));

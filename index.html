@@ -96,7 +96,7 @@ details .list{margin-top:10px;opacity:.75}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#060a14;border:1px solid var(--accent);color:var(--accent);padding:10px 16px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.06em;z-index:40;font-size:.82rem;max-width:calc(100% - 32px)}
 
 /* Onglets du bas */
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--header);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--header);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr 1fr;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 .tab{background:transparent;border:0;color:var(--muted);display:grid;justify-items:center;gap:3px;padding:6px 2px;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;position:relative;min-height:54px}
 .tab svg{width:22px;height:22px}
 .tab[aria-pressed="true"]{color:var(--accent)}
@@ -125,6 +125,22 @@ main .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
 .actions .right{display:flex;gap:10px;margin-left:auto}
 .danger{color:var(--signal)!important;border-color:var(--signal)!important}
+
+/* QG */
+.qg-log{display:grid;gap:10px;min-height:200px}
+.msg{font-size:1.02rem;line-height:1.4;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg.me{font-family:var(--f-mono);font-size:.86rem;color:var(--muted);text-align:right}
+.msg.me::before{content:"> ";color:var(--accent)}
+.msg.ai{border-left:2px solid var(--accent);padding-left:12px}
+.msg.err{color:var(--signal);font-family:var(--f-mono);font-size:.82rem}
+.msg .ops{display:block;margin-top:6px;font-family:var(--f-mono);font-size:.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.qg-quick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.qg-quick button{border:1px dashed var(--line);background:transparent;color:var(--ink);padding:8px 12px;font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.qg-form{display:flex;gap:8px}
+.qg-form input{flex:1}
+.qg-status{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.qg-status.on::before{content:"";display:inline-block;width:7px;height:7px;background:var(--accent);margin-right:6px;animation:blink 1.4s steps(2) infinite}
+[disabled]{opacity:.5}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -160,6 +176,20 @@ main .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
     <div id="taskList" style="display:grid;gap:18px"></div>
   </section>
 
+  <!-- QG -->
+  <section id="qgView" hidden style="display:grid;gap:14px">
+    <div class="panel">
+      <div class="head"><div><div class="label">QG · IA tactique</div><div class="date">Donne tes ordres</div></div><div class="qg-status on" id="qgStatus">En ligne</div></div>
+    </div>
+    <div class="qg-log" id="qgLog" aria-live="polite"><div class="msg ai">Ici le QG. Parle-moi normalement : « qui je dois encore appeler ? », « ajoute la ronde de Thiais demain à 14h, urgente », « La Défense a pris son poste ».</div></div>
+    <div class="qg-quick">
+      <button type="button" data-q="Fais-moi le briefing : qui reste à appeler, ce qui est en retard, et dans quel ordre attaquer.">Briefing</button>
+      <button type="button" data-q="Quels agents n'ont pas encore été confirmés aujourd'hui ? Donne leurs numéros.">Qui appeler ?</button>
+      <button type="button" data-q="Planifie mes objectifs sans date sur aujourd'hui et demain, avec des alertes, et applique.">Planifier</button>
+    </div>
+    <form class="qg-form" id="qgForm" autocomplete="off"><input type="text" id="qgInput" placeholder="> Ordre au QG…" aria-label="Ordre au QG"><button class="btn" type="submit" id="qgSend">Envoyer</button></form>
+  </section>
+
   <!-- Aujourd'hui -->
   <section id="today" hidden>
     <div class="panel">
@@ -186,6 +216,7 @@ main .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 </div></main>
 <nav class="tabbar" id="tabs" hidden>
   <button class="tab" data-v="service" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Service<span class="badge" id="badgeService" hidden></span></button>
+  <button class="tab" data-v="qg" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 18v-6a8 8 0 0 1 16 0v6"/><path d="M4 18h3v-5H4M20 18h-3v-5h3"/></svg>QG</button>
   <button class="tab" data-v="tasks" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Objectifs<span class="badge" id="badgeTasks" hidden></span></button>
 </nav>
 
@@ -212,5 +243,6 @@ main .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 <script src="parser.js"></script>
 <script src="app.js"></script>
 <script src="tasks.js"></script>
+<script src="qg.js"></script>
 </body>
 </html>
