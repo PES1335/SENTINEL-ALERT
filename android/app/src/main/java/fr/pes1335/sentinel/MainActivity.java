@@ -52,7 +52,8 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE); // toujours la dernière version de l'interface
+        web.clearCache(true);
         web.addJavascriptInterface(new Bridge(), "SentinelNative");
 
         web.setWebViewClient(new WebViewClient() {
@@ -85,7 +86,7 @@ public class MainActivity extends Activity {
         });
 
         setContentView(web);
-        web.loadUrl(APP_URL);
+        web.loadUrl(APP_URL + "?v=" + System.currentTimeMillis());
     }
 
     @Override
