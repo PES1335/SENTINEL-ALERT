@@ -3,10 +3,14 @@
 const $ = s => document.querySelector(s);
 const CFG = "sentinel.cfg";
 let cfg = null, state = null;
+/* Dans l'appli Android, le moteur d'alarmes natif est accessible ici */
+const NATIVE = window.SentinelNative || null;
+function nativeCall(fn, ...a){ try{ return NATIVE && NATIVE[fn] ? NATIVE[fn](...a) : null }catch(e){ return null } }
 
 function load(){ try{ return JSON.parse(localStorage.getItem(CFG)||"null") }catch(e){ return null } }
 async function save(c){
   cfg = c; try{ localStorage.setItem(CFG, JSON.stringify(c)) }catch(e){}
+  nativeCall("setConfig", c.url, c.key);
   try{ const cache = await caches.open("sentinel-cfg"); await cache.put("/cfg", new Response(JSON.stringify(c), {headers:{"content-type":"application/json"}})) }catch(e){}
 }
 let toastT;
@@ -42,7 +46,22 @@ $("#link").onclick = async () => {
 /* ---------- Notifications ---------- */
 function b64ToBytes(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; const b=atob(s); return Uint8Array.from(b,c=>c.charCodeAt(0)) }
 async function swReg(){ return "serviceWorker" in navigator ? navigator.serviceWorker.ready : null }
+const PERMS = { notif:"Notifications", fsi:"Alarme plein écran", exact:"Alarmes à l'heure exacte", battery:"Batterie sans restriction" };
+function refreshNative(){
+  const p = $("#notif"); p.hidden = false;
+  let st = {}; try{ st = JSON.parse(nativeCall("status") || "{}") }catch(e){}
+  const missing = Object.keys(PERMS).filter(k => st[k] === false);
+  const ok = !missing.length;
+  p.classList.toggle("alert", !ok);
+  $("#notifTitle").textContent = ok ? "Alarmes plein écran actives" : "Autorisations à donner";
+  const next = st.next ? `Prochaine alarme : <b>${esc(st.nextText||"")}</b>` : "Aucune alarme prévue pour l'instant.";
+  $("#notifText").innerHTML = ok ? next :
+    `Touche chaque bouton pour autoriser Sentinel :<div class="row">${missing.map(k=>`<button class="btn ghost" data-perm="${k}">✗ ${PERMS[k]}</button>`).join("")}</div>`;
+  $("#enable").hidden = true; $("#test").hidden = false; $("#test").textContent = "Tester l'alarme";
+}
+$("#notifText").addEventListener("click", e => { const b = e.target.closest("[data-perm]"); if(b) nativeCall("fix", b.dataset.perm) });
 async function refreshNotif(){
+  if(NATIVE) return refreshNative();
   const p = $("#notif");
   p.hidden = false;
   if(!("Notification" in window) || !("PushManager" in window)){
@@ -72,6 +91,7 @@ $("#enable").onclick = async () => {
   }catch(e){ toast("Activation impossible : " + (e.message||e)); }
 };
 $("#test").onclick = async () => {
+  if(NATIVE){ nativeCall("test"); toast("Verrouille ton téléphone : l'alarme arrive dans 10 s"); return }
   try{ const r = await call("/test", {}); toast(r.sent ? "Test envoyé · ferme l'appli pour voir" : "Aucun appareil joignable, réactive les alertes"); }
   catch(e){ toast(e.message) }
 };
@@ -116,11 +136,11 @@ $("#slots").addEventListener("click", async e => {
   const key = b.closest("[data-key]").dataset.key;
   const r = [...state.main, ...state.reps].find(x=>x.key===key); if(!r) return;
   r.done = r.done ? null : Date.now(); render();
-  try{ await call("/done", { date: state.date, key, done: !!r.done }); if(state.main.every(x=>x.done)) toast("Tous les débuts de service confirmés"); }
+  try{ await call("/done", { date: state.date, key, done: !!r.done }); nativeCall("reschedule"); if(state.main.every(x=>x.done)) toast("Tous les débuts de service confirmés"); }
   catch(err){ r.done = r.done ? null : Date.now(); render(); toast("Pas de réseau, réessaie") }
 });
-$("#offset").onchange = e => call("/settings",{offset:+e.target.value}).then(s=>{ state.settings=s; render(); toast("Réglage enregistré") }).catch(err=>toast(err.message));
-$("#repeat").onchange = e => call("/settings",{repeat:+e.target.value}).then(s=>{ state.settings=s; render(); toast("Réglage enregistré") }).catch(err=>toast(err.message));
+$("#offset").onchange = e => call("/settings",{offset:+e.target.value}).then(s=>{ state.settings=s; render(); nativeCall("reschedule"); toast("Réglage enregistré") }).catch(err=>toast(err.message));
+$("#repeat").onchange = e => call("/settings",{repeat:+e.target.value}).then(s=>{ state.settings=s; render(); nativeCall("reschedule"); toast("Réglage enregistré") }).catch(err=>toast(err.message));
 
 /* ---------- Import PDF ---------- */
 function loadScript(src){ return new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=ko; document.head.append(s) }) }
@@ -136,7 +156,7 @@ $("#pdf").addEventListener("change", async e => {
     const days = parsePlanning(lines); const k = Object.keys(days).filter(d=>days[d].length);
     if(!k.length){ toast("Aucune prise de service trouvée dans ce PDF"); return }
     const r = await call("/planning", { days });
-    toast(`Planning importé : ${k.length} jours, ${r.rows} lignes`); refresh();
+    toast(`Planning importé : ${k.length} jours, ${r.rows} lignes`); refresh(); nativeCall("reschedule");
   }catch(err){ toast("Impossible de lire ce PDF") }
 });
 
@@ -160,14 +180,15 @@ tickClock(); setInterval(tickClock, 15000);
 
 async function boot(){
   cfg = load();
+  if(!cfg && NATIVE){ try{ const c = JSON.parse(nativeCall("getConfig") || "{}"); if(c.key) cfg = c }catch(e){} }
   if(!cfg){ $("#setup").hidden = false; return }
   await save(cfg);
   $("#setup").hidden = true; $("#tabs").hidden = false; showView(view);
   $("#showCode").textContent = cfg.key;
   refreshNotif(); refresh(); if(window.SATasks) window.SATasks.refresh();
 }
-window.SA = { call: (...a)=>call(...a), toast: m=>toast(m), esc, badge, get ready(){ return !!cfg } };
-if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+window.SA = { native: (fn,...a)=>nativeCall(fn,...a), call: (...a)=>call(...a), toast: m=>toast(m), esc, badge, get ready(){ return !!cfg } };
+if(!NATIVE && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 document.addEventListener("visibilitychange", () => { if(!document.hidden && cfg) { refresh(); refreshNotif(); } });
 setInterval(() => { if(!document.hidden && cfg) refresh() }, 30000);
 boot();

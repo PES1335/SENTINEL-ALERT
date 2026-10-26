@@ -38,11 +38,11 @@ function parseQuick(text){
 
 async function save(t){
   const i = tasks.findIndex(x=>x.id===t.id); if(i<0) tasks.push(t); else tasks[i]=t; render();
-  try{ await SA.call("/tasks", t) }catch(e){ SA.toast("Pas de réseau : objectif non enregistré") }
+  try{ await SA.call("/tasks", t); SA.native("reschedule") }catch(e){ SA.toast("Pas de réseau : objectif non enregistré") }
 }
 async function del(id){
   tasks = tasks.filter(x=>x.id!==id); render();
-  try{ await SA.call("/tasks/delete", {id}) }catch(e){ SA.toast("Pas de réseau, réessaie") }
+  try{ await SA.call("/tasks/delete", {id}); SA.native("reschedule") }catch(e){ SA.toast("Pas de réseau, réessaie") }
 }
 function complete(t){
   if(t.repeat && t.repeat!=="none" && t.due){
