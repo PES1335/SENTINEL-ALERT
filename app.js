@@ -103,6 +103,7 @@ function render(){
   }).join("") + (reps.length ? `<details><summary>Reprises après la pause · ${reps.length} (non suivies)</summary><div class="list">${reps.map(card).join("")}</div></details>` : "");
   $("#slots").innerHTML = n ? html : `<p class="empty">Aucun début de service aujourd'hui. Importe un planning dans les réglages.</p>`;
   $("#count").classList.toggle("late", anyLate);
+  badge("#badgeService", main.filter(r=>!r.done && state.date===state.today && nowMin >= toMin(r.start) + off).length);
   $("#offset").value = String(settings.offset||0); $("#repeat").value = String(settings.repeat||10);
   $("#range").textContent = state.range ? `Planning chargé du ${state.range[0].split("-").reverse().slice(0,2).join("/")} au ${state.range[1].split("-").reverse().slice(0,2).join("/")}.` : "Aucun planning chargé.";
 }
@@ -139,6 +140,20 @@ $("#pdf").addEventListener("change", async e => {
   }catch(err){ toast("Impossible de lire ce PDF") }
 });
 
+/* ---------- Onglets ---------- */
+let view = "service";
+try{ view = localStorage.getItem("sentinel.view") || "service" }catch(e){}
+function showView(v){
+  view = v; try{ localStorage.setItem("sentinel.view", v) }catch(e){}
+  const svc = v === "service";
+  $("#today").hidden = !svc; $("#settings").hidden = !svc; $("#tasksView").hidden = svc;
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+  if(!svc && window.SATasks) window.SATasks.refresh();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => showView(b.dataset.v));
+function badge(id,n){ const el=$(id); el.hidden=!n; el.textContent=n||"" }
+
 /* ---------- Démarrage ---------- */
 function tickClock(){ const d=new Date(); $("#clock").textContent = String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0") }
 tickClock(); setInterval(tickClock, 15000);
@@ -147,10 +162,11 @@ async function boot(){
   cfg = load();
   if(!cfg){ $("#setup").hidden = false; return }
   await save(cfg);
-  $("#setup").hidden = true; $("#today").hidden = false; $("#settings").hidden = false;
+  $("#setup").hidden = true; $("#tabs").hidden = false; showView(view);
   $("#showCode").textContent = cfg.key;
-  refreshNotif(); refresh();
+  refreshNotif(); refresh(); if(window.SATasks) window.SATasks.refresh();
 }
+window.SA = { call: (...a)=>call(...a), toast: m=>toast(m), esc, badge, get ready(){ return !!cfg } };
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 document.addEventListener("visibilitychange", () => { if(!document.hidden && cfg) { refresh(); refreshNotif(); } });
 setInterval(() => { if(!document.hidden && cfg) refresh() }, 30000);

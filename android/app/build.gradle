@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'fr.pes1335.sentinel'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'fr.pes1335.sentinel'
+        minSdk 27
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        fixe {
+            storeFile file('sentinel.keystore')
+            storePassword 'sentinel'
+            keyAlias 'sentinel'
+            keyPassword 'sentinel'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.fixe
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixe
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

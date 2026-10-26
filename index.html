@@ -94,6 +94,37 @@ details .list{margin-top:10px;opacity:.75}
 .file input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:200px;cursor:pointer}
 .empty{color:var(--muted);font-family:var(--f-mono);font-size:.82rem;text-transform:uppercase;letter-spacing:.06em}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#060a14;border:1px solid var(--accent);color:var(--accent);padding:10px 16px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.06em;z-index:40;font-size:.82rem;max-width:calc(100% - 32px)}
+
+/* Onglets du bas */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--header);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tab{background:transparent;border:0;color:var(--muted);display:grid;justify-items:center;gap:3px;padding:6px 2px;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;position:relative;min-height:54px}
+.tab svg{width:22px;height:22px}
+.tab[aria-pressed="true"]{color:var(--accent)}
+.tab[aria-pressed="true"]::before{content:"";position:absolute;top:-7px;left:30%;right:30%;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.tab .badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:18px;height:18px;padding:0 5px;background:var(--signal);color:#fff;font-family:var(--f-mono);font-size:.68rem;display:grid;place-items:center}
+main .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+/* Objectifs */
+.quick{display:flex;gap:8px}
+.quick input{flex:1}
+.sec h2{font-family:var(--f-mono);font-weight:400;font-size:.76rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between}
+.sec h2 span:first-child::before{content:"// ";color:var(--accent)}
+.sec.late h2,.sec.late h2 span:first-child::before{color:var(--signal)}
+.item[data-prio="1"]::before{background:var(--warn)}
+.item[data-prio="2"]::before{background:var(--signal);box-shadow:0 0 10px var(--signal)}
+.item .more{background:transparent;border:0;color:var(--muted);padding:10px}
+.meta .late{color:var(--signal)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);border-top:2px solid var(--accent);width:100%;max-width:560px;padding:20px max(18px,env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-right,0px));display:grid;gap:14px;max-height:92%;overflow:auto}
+.sheet h3{font-family:var(--f-display);font-weight:400;margin:0;font-size:1.35rem;text-transform:uppercase;letter-spacing:.05em}
+.sheet input[type=date],.sheet input[type=time]{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);padding:11px;font-family:var(--f-mono);font-size:16px;border-radius:0}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{border:1px solid var(--line);background:var(--bg);padding:10px 4px;font-weight:700;font-size:.85rem;text-transform:uppercase}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.seg button[data-v="1"][aria-pressed="true"]{background:var(--warn);border-color:var(--warn)}
+.seg button[data-v="2"][aria-pressed="true"]{background:var(--signal);border-color:var(--signal)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .right{display:flex;gap:10px;margin-left:auto}
+.danger{color:var(--signal)!important;border-color:var(--signal)!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -123,6 +154,12 @@ details .list{margin-top:10px;opacity:.75}
     <div class="row"><button class="btn red" id="enable">Activer les alertes</button><button class="btn ghost" id="test" hidden>Tester</button></div>
   </section>
 
+  <!-- Objectifs -->
+  <section id="tasksView" hidden style="display:grid;gap:18px">
+    <form class="quick" id="quick" autocomplete="off"><input type="text" id="quickInput" placeholder="> Nouvel objectif… ex. Appeler La Défense 14h" aria-label="Nouvel objectif"><button class="btn" type="submit">Ajouter</button></form>
+    <div id="taskList" style="display:grid;gap:18px"></div>
+  </section>
+
   <!-- Aujourd'hui -->
   <section id="today" hidden>
     <div class="panel">
@@ -147,8 +184,33 @@ details .list{margin-top:10px;opacity:.75}
   </section>
 
 </div></main>
+<nav class="tabbar" id="tabs" hidden>
+  <button class="tab" data-v="service" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Service<span class="badge" id="badgeService" hidden></span></button>
+  <button class="tab" data-v="tasks" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Objectifs<span class="badge" id="badgeTasks" hidden></span></button>
+</nav>
+
+<div class="scrim" id="scrim" hidden>
+  <form class="sheet" id="sheet" autocomplete="off">
+    <h3 id="sheetTitle">Nouvel objectif</h3>
+    <div class="field"><label for="fTitle">Objectif</label><input type="text" id="fTitle" required maxlength="140"></div>
+    <div class="grid2" style="margin-top:0">
+      <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
+      <div class="field"><label for="fTime">Heure</label><input type="time" id="fTime"></div>
+    </div>
+    <div class="grid2" style="margin-top:0">
+      <div class="field"><label for="fRemind">Alerte</label><select id="fRemind"><option value="-1">Aucune</option><option value="0">À l'heure</option><option value="5">5 min avant</option><option value="15">15 min avant</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="1440">La veille</option></select></div>
+      <div class="field"><label for="fRepeat">Répéter</label><select id="fRepeat"><option value="none">Jamais</option><option value="day">Chaque jour</option><option value="weekday">En semaine</option><option value="week">Chaque semaine</option></select></div>
+    </div>
+    <div class="field"><label>Priorité</label><div class="seg" id="fPrio"><button type="button" data-v="0">Normale</button><button type="button" data-v="1">Importante</button><button type="button" data-v="2">Urgente</button></div></div>
+    <div class="actions">
+      <button type="button" class="btn ghost danger" id="delBtn" hidden>Supprimer</button>
+      <div class="right"><button type="button" class="btn ghost" id="cancelBtn">Retour</button><button type="submit" class="btn">Valider</button></div>
+    </div>
+  </form>
+</div>
 <div class="toast" id="toast" hidden></div>
 <script src="parser.js"></script>
 <script src="app.js"></script>
+<script src="tasks.js"></script>
 </body>
 </html>
