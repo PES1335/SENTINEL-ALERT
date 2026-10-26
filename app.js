@@ -58,6 +58,9 @@ function refreshNative(){
   $("#notifText").innerHTML = ok ? next :
     `Touche chaque bouton pour autoriser Sentinel :<div class="row">${missing.map(k=>`<button class="btn ghost" data-perm="${k}">✗ ${PERMS[k]}</button>`).join("")}</div>`;
   $("#enable").hidden = true; $("#test").hidden = false; $("#test").textContent = "Tester l'alarme";
+  let snd = $("#sound");
+  if(!snd){ snd = document.createElement("button"); snd.id = "sound"; snd.className = "btn ghost"; $("#test").after(snd); snd.onclick = () => nativeCall("pickSound"); }
+  snd.textContent = "🔔 Sonnerie : " + (nativeCall("soundTitle") || "par défaut");
 }
 $("#notifText").addEventListener("click", e => { const b = e.target.closest("[data-perm]"); if(b) nativeCall("fix", b.dataset.perm) });
 async function refreshNotif(){

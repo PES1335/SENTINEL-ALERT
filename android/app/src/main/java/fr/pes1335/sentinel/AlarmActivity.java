@@ -101,16 +101,31 @@ public class AlarmActivity extends Activity {
         @JavascriptInterface public void close() { runOnUiThread(() -> finishWith("close", 0)); }
     }
 
+    /** Sonnerie choisie dans Sentinel, sinon l'alarme par défaut du téléphone. */
+    static Uri soundUri(Context c) {
+        String s = Api.prefs(c).getString("sound", "");
+        if (s != null && s.length() > 0) return Uri.parse(s);
+        Uri u = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (u == null) u = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        return u;
+    }
+
     private void startSound() {
         stopSound();
         try {
-            Uri u = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            if (u == null) u = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            Uri u = soundUri(this);
             player = new MediaPlayer();
             player.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-            player.setDataSource(this, u);
+            try {
+                player.setDataSource(this, u);
+            } catch (Exception bad) { // sonnerie supprimée ou illisible : on revient à l'alarme par défaut
+                player.reset();
+                player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+                player.setDataSource(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM));
+            }
             player.setLooping(true);
             player.prepare();
             player.start();

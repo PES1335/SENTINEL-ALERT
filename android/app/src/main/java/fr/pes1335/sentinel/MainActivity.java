@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
 
     static final String APP_URL = "https://pes1335.github.io/SENTINEL-ALERT/";
     static final int FILE_REQ = 42;
+    static final int SOUND_REQ = 43;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
@@ -90,6 +91,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SOUND_REQ && resultCode == RESULT_OK && data != null) {
+            Uri u = data.getParcelableExtra(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+            Api.prefs(this).edit().putString("sound", u == null ? "" : u.toString()).apply();
+            String name = soundName();
+            web.evaluateJavascript("window.SA && SA.toast(" + JSONObject.quote("Sonnerie : " + name) + ");document.dispatchEvent(new Event('visibilitychange'))", null);
+            return;
+        }
         if (requestCode == FILE_REQ && fileCallback != null) {
             fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
             fileCallback = null;
@@ -131,6 +139,16 @@ public class MainActivity extends Activity {
         }
     }
 
+    String soundName() {
+        try {
+            Uri u = AlarmActivity.soundUri(this);
+            android.media.Ringtone r = android.media.RingtoneManager.getRingtone(this, u);
+            return r == null ? "par défaut" : r.getTitle(this);
+        } catch (Exception e) {
+            return "par défaut";
+        }
+    }
+
     /** Pont entre l'interface web et les alarmes Android. */
     private final class Bridge {
 
@@ -154,6 +172,24 @@ public class MainActivity extends Activity {
         public void reschedule() {
             final Context c = getApplicationContext();
             new Thread(() -> { try { Scheduler.reschedule(c); } catch (Exception ignored) {} }).start();
+        }
+
+        @JavascriptInterface
+        public void pickSound() {
+            runOnUiThread(() -> {
+                Intent i = new Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_ALARM | android.media.RingtoneManager.TYPE_RINGTONE)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TITLE, "Sonnerie des alarmes Sentinel")
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, AlarmActivity.soundUri(MainActivity.this));
+                try { startActivityForResult(i, SOUND_REQ); } catch (Exception ignored) {}
+            });
+        }
+
+        @JavascriptInterface
+        public String soundTitle() {
+            return soundName();
         }
 
         @JavascriptInterface
